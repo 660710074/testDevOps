@@ -1,0 +1,65 @@
+version: '3.9'
+
+services:
+  # ===== PostgreSQL Database =====
+  db:
+    image: postgres:15-alpine
+    container_name: myapp_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: myappdb
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d myappdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===== Backend API =====
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: myapp_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://admin:secret123@db:5432/myappdb
+      JWT_SECRET: 114eefe25e713fa90789c0c08a9279f78448bb160bba5b3c4cc86429307c64603d67d0ab499ae22cb85ef6a246f0ddb381960b83ee4c8e2dcd5d6aa194acf4de
+      JWT_EXPIRES_IN: 7d
+      PORT: 8000
+      NODE_ENV: development
+      CORS_ORIGIN: http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # ===== Frontend =====
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev       # ใช้ dev dockerfile แยก
+    container_name: myapp_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"                    # vite dev server ฟัง 3000
+    environment:
+      VITE_API_URL: http://localhost:8000/api
+      DOCKER: "true"                   # บอก vite ให้ใช้ชื่อ container แทน localhost
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app                # hot-reload — แก้ไฟล์แล้วเห็นทันที
+      - /app/node_modules
+
+volumes:
+  postgres_data:

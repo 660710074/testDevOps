@@ -1,0 +1,12 @@
+# ใช้เฉพาะ local dev — รัน vite dev server พร้อม hot-reload
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+# source code จะถูก mount ผ่าน volume ใน docker-compose
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]
